@@ -9,7 +9,7 @@
     <title>社員打刻</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/icons/icon-192.svg">
-    <link rel="stylesheet" href="/styles.css?v=13">
+    <link rel="stylesheet" href="/styles.css?v=14">
     <style>
       .is-hidden { display: none !important; }
       * { box-sizing: border-box; }
@@ -43,6 +43,11 @@
           <button class="primary-button" type="submit">ログイン</button>
           <p class="hint">初期PINは各社員IDと同じ番号です。</p>
         </form>
+
+        <section class="install-panel">
+          <button id="installAppButton" class="primary-button install-button" type="button">スマホに追加</button>
+          <div id="installGuide" class="install-guide is-hidden" aria-live="polite"></div>
+        </section>
 
         <button id="showAdminLogin" class="link-button" type="button">管理者画面</button>
       </section>
@@ -180,6 +185,6 @@
       </section>
     </main>
 
-    <script src="/app.js?v=13" defer></script>
+    <script src="/app.js?v=14" defer></script>
   </body>
 </html>

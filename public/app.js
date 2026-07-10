@@ -4,7 +4,8 @@ const state = {
   adminPin: "",
   employees: [],
   attendance: null,
-  statusObserver: null
+  statusObserver: null,
+  deferredInstallPrompt: null
 };
 const DEFAULT_SUMMARY_FOLDER = "C:\\勤怠CSV";
 
@@ -41,6 +42,90 @@ function updateClock() {
     minute: "2-digit",
     second: "2-digit"
   }).format(new Date());
+}
+
+function deviceInfo() {
+  const ua = navigator.userAgent || "";
+  const isAndroid = /Android/i.test(ua);
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isChrome = /Chrome|CriOS/i.test(ua) && !/Edg|OPR|SamsungBrowser/i.test(ua);
+  const isLine = /Line\//i.test(ua) || /NAVER\(inapp/i.test(ua);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  return { isAndroid, isIOS, isChrome, isLine, isStandalone };
+}
+
+function installGuideHtml() {
+  const info = deviceInfo();
+  if (info.isStandalone) {
+    return "<h2>ホーム画面に追加済みです</h2><p>このままアプリとして使えます。</p>";
+  }
+  if (info.isLine) {
+    return `
+      <h2>LINE内ブラウザでは追加できません</h2>
+      <p>SafariまたはChromeで開いてからホーム画面に追加してください。</p>
+      <ol>
+        <li>右上または下部のメニューから外部ブラウザで開く</li>
+        <li>iPhoneはSafari、AndroidはChromeで開く</li>
+        <li>ホーム画面に追加する</li>
+      </ol>
+    `;
+  }
+  if (info.isIOS) {
+    return `
+      <h2>iPhoneで追加する方法</h2>
+      <ol>
+        <li>Safariで開く</li>
+        <li>共有ボタンを押す</li>
+        <li>ホーム画面に追加</li>
+      </ol>
+    `;
+  }
+  if (info.isAndroid) {
+    return `
+      <h2>Androidで追加する方法</h2>
+      <ol>
+        <li>Chromeで開く</li>
+        <li>メニューを押す</li>
+        <li>ホーム画面に追加、またはアプリをインストール</li>
+      </ol>
+    `;
+  }
+  return "<h2>スマホで追加する方法</h2><p>iPhoneはSafari、AndroidはChromeで開いてホーム画面に追加してください。</p>";
+}
+
+function showInstallGuide(message = "") {
+  const guide = $("installGuide");
+  guide.innerHTML = `${message ? `<p>${escapeHtml(message)}</p>` : ""}${installGuideHtml()}`;
+  guide.classList.remove("is-hidden");
+}
+
+function updateInstallButton() {
+  const info = deviceInfo();
+  const button = $("installAppButton");
+  if (info.isStandalone) {
+    button.textContent = "ホーム画面に追加済み";
+    button.disabled = true;
+    return;
+  }
+  button.disabled = false;
+  button.textContent = state.deferredInstallPrompt && info.isAndroid ? "アプリをインストール" : "スマホに追加";
+}
+
+async function handleInstallClick() {
+  const info = deviceInfo();
+  if (info.isLine || info.isIOS || !state.deferredInstallPrompt) {
+    showInstallGuide();
+    return;
+  }
+  state.deferredInstallPrompt.prompt();
+  const choice = await state.deferredInstallPrompt.userChoice;
+  state.deferredInstallPrompt = null;
+  updateInstallButton();
+  if (choice.outcome === "accepted") {
+    showInstallGuide("インストールを開始しました。");
+  } else {
+    showInstallGuide("インストールをキャンセルしました。必要な時にもう一度押してください。");
+  }
 }
 
 function setMessage(text, isError = false) {
@@ -493,6 +578,7 @@ $("employeeMonthList").addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveEmployeeCorrection(form);
 });
+$("installAppButton").addEventListener("click", handleInstallClick);
 $("showAdminLogin").addEventListener("click", () => showView("adminLoginView"));
 $("openAdminFromEmployee").addEventListener("click", () => showView("adminLoginView"));
 document.querySelector(".back-login").addEventListener("click", () => showView(state.employee ? "employeeView" : "loginView"));
@@ -598,6 +684,8 @@ $("summaryFolder").value = localStorage.getItem("summaryFolder") || DEFAULT_SUMM
 const initialStatusRange = closingRangeFor();
 $("statusFrom").value = initialStatusRange.start;
 $("statusTo").value = initialStatusRange.end;
+updateInstallButton();
+if (deviceInfo().isLine) showInstallGuide();
 
 const rememberedEmployeeId = localStorage.getItem("rememberedEmployeeId");
 const rememberedEmployeePin = localStorage.getItem("rememberedEmployeePin");
@@ -610,6 +698,18 @@ if (rememberedEmployeeId && rememberedEmployeePin) {
     showView("loginView");
   });
 }
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  state.deferredInstallPrompt = event;
+  updateInstallButton();
+});
+
+window.addEventListener("appinstalled", () => {
+  state.deferredInstallPrompt = null;
+  updateInstallButton();
+  showInstallGuide("ホーム画面への追加が完了しました。");
+});
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
