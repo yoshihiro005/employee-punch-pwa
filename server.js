@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const { DatabaseSync } = require("node:sqlite");
 
 const app = express();
@@ -8,10 +9,15 @@ const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PIN = process.env.ADMIN_PIN || "2468";
 const DEFAULT_EXPORT_DIR = process.env.EXPORT_DIR || "C:\\勤怠CSV";
 const APP_TIME_ZONE = "Asia/Tokyo";
-const DATA_DIR = path.join(__dirname, "data");
-const DB_PATH = path.join(DATA_DIR, "attendance.sqlite");
+const LEGACY_DB_PATH = path.join(__dirname, "data", "attendance.sqlite");
+const DEFAULT_DATA_DIR = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "employee-punch-pwa");
+const DB_PATH = process.env.DB_PATH || path.join(DEFAULT_DATA_DIR, "attendance.sqlite");
+const DATA_DIR = path.dirname(DB_PATH);
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
+if (DB_PATH !== LEGACY_DB_PATH && !fs.existsSync(DB_PATH) && fs.existsSync(LEGACY_DB_PATH)) {
+  fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
+}
 
 const db = new DatabaseSync(DB_PATH);
 db.exec(`

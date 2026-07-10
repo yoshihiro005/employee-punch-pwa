@@ -57,3 +57,26 @@ SQLiteデータベースは `data/attendance.sqlite` に作成されます。
 $env:EXPORT_DIR="C:\勤怠CSV"
 npm.cmd start
 ```
+
+## 登録者・打刻データが初期化されないための保存先
+
+社員登録、PIN、打刻履歴、修正履歴はSQLiteデータベースに保存されます。
+
+現在の標準保存先は、アプリのGitHubフォルダ内ではなく、Windowsのユーザーデータ領域です。
+
+```text
+%LOCALAPPDATA%\employee-punch-pwa\attendance.sqlite
+```
+
+そのため、GitHubからアプリ本体を更新しても、登録者や打刻データは残ります。
+
+以前の保存先 `data/attendance.sqlite` が残っていて、新しい保存先にDBがまだ無い場合は、起動時に自動で新しい保存先へコピーします。
+
+保存先を明示したい場合は、起動前に `DB_PATH` を指定できます。
+
+```powershell
+$env:DB_PATH="C:\勤怠データ\attendance.sqlite"
+npm.cmd start
+```
+
+バックアップする場合は、この `attendance.sqlite` をコピーしてください。
