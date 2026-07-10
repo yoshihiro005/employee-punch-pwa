@@ -57,40 +57,41 @@ function deviceInfo() {
 function installGuideHtml() {
   const info = deviceInfo();
   if (info.isStandalone) {
-    return "<h2>ホーム画面に追加済みです</h2><p>このままアプリとして使えます。</p>";
-  }
-  if (info.isLine) {
     return `
-      <h2>LINE内ブラウザでは追加できません</h2>
-      <p>SafariまたはChromeで開いてからホーム画面に追加してください。</p>
-      <ol>
-        <li>右上または下部のメニューから外部ブラウザで開く</li>
-        <li>iPhoneはSafari、AndroidはChromeで開く</li>
-        <li>ホーム画面に追加する</li>
-      </ol>
+      <div class="install-guide-head">
+        <span class="install-guide-icon">📱</span>
+        <h2>ホーム画面に追加済みです</h2>
+      </div>
+      <p class="install-lead">このままアプリとして使えます。</p>
     `;
   }
-  if (info.isIOS) {
-    return `
-      <h2>iPhoneで追加する方法</h2>
-      <ol>
-        <li>Safariで開く</li>
-        <li>共有ボタンを押す</li>
-        <li>ホーム画面に追加</li>
+  return `
+    <div class="install-guide-head">
+      <span class="install-guide-icon">📱</span>
+      <h2>ホーム画面に追加する方法</h2>
+    </div>
+
+    <section class="install-guide-section">
+      <h3>【iPhone】</h3>
+      <ol class="install-steps">
+        <li><span>①</span><p>右下（または下中央）の「共有」ボタン（□から↑が出ているマーク）を押します。</p></li>
+        <li><span>②</span><p>「ホーム画面に追加」を選びます。</p></li>
+        <li><span>③</span><p>右上の「追加」を押します。</p></li>
       </ol>
-    `;
-  }
-  if (info.isAndroid) {
-    return `
-      <h2>Androidで追加する方法</h2>
-      <ol>
-        <li>Chromeで開く</li>
-        <li>メニューを押す</li>
-        <li>ホーム画面に追加、またはアプリをインストール</li>
+    </section>
+
+    <section class="install-guide-section">
+      <h3>【Android】</h3>
+      <ol class="install-steps">
+        <li><span>①</span><p>右上の「︙」メニューを押します。</p></li>
+        <li><span>②</span><p>「ホーム画面に追加」または「アプリをインストール」を選びます。</p></li>
+        <li><span>③</span><p>「追加」を押します。</p></li>
       </ol>
-    `;
-  }
-  return "<h2>スマホで追加する方法</h2><p>iPhoneはSafari、AndroidはChromeで開いてホーム画面に追加してください。</p>";
+    </section>
+
+    <p class="install-line-note">※LINEから開いている場合は、右上のメニューから「Safariで開く」または「Chromeで開く」を選んでから操作してください。</p>
+    <p class="install-lead">ホーム画面にアイコンを追加すると、次回からはアプリのようにワンタップで勤怠を開けます。</p>
+  `;
 }
 
 function showInstallGuide(message = "") {

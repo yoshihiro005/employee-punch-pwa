@@ -7,6 +7,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PIN = process.env.ADMIN_PIN || "2468";
 const DEFAULT_EXPORT_DIR = process.env.EXPORT_DIR || "C:\\勤怠CSV";
+const APP_TIME_ZONE = "Asia/Tokyo";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "attendance.sqlite");
 
@@ -101,14 +102,31 @@ app.get("/reset-cache", (_req, res) => {
 </html>`);
 });
 
+function tokyoDateTimeParts(date = new Date()) {
+  const values = {};
+  new Intl.DateTimeFormat("ja-JP", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date).forEach((part) => {
+    if (part.type !== "literal") values[part.type] = part.value;
+  });
+  return values;
+}
+
 function nowParts() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  const isoLocal = local.toISOString().slice(0, 19);
+  const parts = tokyoDateTimeParts();
+  const date = `${parts.year}-${parts.month}-${parts.day}`;
+  const time = `${parts.hour}:${parts.minute}`;
   return {
-    date: isoLocal.slice(0, 10),
-    time: isoLocal.slice(11, 16),
-    stamp: isoLocal.replace("T", " ")
+    date,
+    time,
+    stamp: `${date} ${time}:${parts.second}`
   };
 }
 
@@ -126,10 +144,10 @@ function monthRange(month) {
 }
 
 function currentClosingRange() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const day = now.getDate();
+  const today = tokyoDateTimeParts();
+  const year = Number(today.year);
+  const month = Number(today.month) - 1;
+  const day = Number(today.day);
   const start = day >= 21 ? new Date(year, month, 21) : new Date(year, month - 1, 21);
   const end = day >= 21 ? new Date(year, month + 1, 20) : new Date(year, month, 20);
   return {
