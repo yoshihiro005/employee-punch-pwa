@@ -1,0 +1,25 @@
+{
+  "name": "社員打刻アプリ",
+  "short_name": "社員打刻",
+  "description": "スマホで出勤・退勤を記録するシンプルな社員打刻PWA",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f3f5f7",
+  "theme_color": "#f6b700",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

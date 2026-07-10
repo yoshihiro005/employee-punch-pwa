@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f6b700">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="社員打刻">
+    <title>社員打刻</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg">
+    <link rel="stylesheet" href="/styles.css?v=13">
+    <style>
+      .is-hidden { display: none !important; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: #f3f5f7; color: #1f2933; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      button, input, select, textarea { font: inherit; }
+      .app-shell { width: min(100%, 760px); min-height: 100vh; margin: 0 auto; padding: 18px 16px 22px; }
+      .view { display: grid; gap: 18px; }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="loginView" class="view">
+        <div class="brand">
+          <div class="brand-mark">出</div>
+          <div>
+            <p class="company-name">㈲長島設備</p>
+            <p class="eyebrow">社員打刻アプリ</p>
+            <h1>今日の出勤・退勤</h1>
+          </div>
+        </div>
+
+        <form id="loginForm" class="panel">
+          <label for="employeeId">社員ID</label>
+          <input id="employeeId" name="employeeId" inputmode="numeric" autocomplete="username" placeholder="例: 1001" required>
+          <label for="employeePin">個人PIN</label>
+          <input id="employeePin" name="employeePin" inputmode="numeric" type="password" autocomplete="current-password" placeholder="個人PIN" required>
+          <label class="check-row">
+            <input id="rememberEmployee" type="checkbox" checked>
+            <span>この端末で次回から自動ログイン</span>
+          </label>
+          <button class="primary-button" type="submit">ログイン</button>
+          <p class="hint">初期PINは各社員IDと同じ番号です。</p>
+        </form>
+
+        <button id="showAdminLogin" class="link-button" type="button">管理者画面</button>
+      </section>
+
+      <section id="employeeView" class="view is-hidden">
+        <header class="topbar">
+          <button id="logoutButton" class="small-button" type="button">ログアウト</button>
+          <button id="openAdminFromEmployee" class="small-button" type="button">管理者</button>
+        </header>
+
+        <div class="today-card">
+          <p id="employeeName" class="employee-name"></p>
+          <p id="todayText" class="today-text"></p>
+          <p id="clockText" class="clock-text"></p>
+        </div>
+
+        <div class="punch-grid">
+          <button id="clockInButton" class="punch-button punch-in" type="button">
+            <span>出勤</span>
+            <small>現場に着いたら押す</small>
+          </button>
+          <button id="clockOutButton" class="punch-button punch-out" type="button">
+            <span>退勤</span>
+            <small>作業終了後に押す</small>
+          </button>
+        </div>
+
+        <div id="messageBox" class="message is-hidden"></div>
+
+        <section class="status-panel">
+          <h2>本日の打刻状況</h2>
+          <dl class="status-list">
+            <div><dt>出勤</dt><dd id="statusIn">未打刻</dd></div>
+            <div><dt>退勤</dt><dd id="statusOut">未打刻</dd></div>
+            <div><dt>勤務時間</dt><dd id="statusWork">-</dd></div>
+          </dl>
+        </section>
+
+        <section class="month-panel">
+          <div class="section-head">
+            <div>
+              <h2>今月の出退勤</h2>
+              <p id="employeeMonthRange" class="hint"></p>
+            </div>
+            <button id="reloadEmployeeMonthButton" class="small-button" type="button">更新</button>
+          </div>
+          <div id="employeeMonthList" class="employee-month-list"></div>
+        </section>
+      </section>
+
+      <section id="adminLoginView" class="view is-hidden">
+        <button class="small-button back-login" type="button">戻る</button>
+        <form id="adminLoginForm" class="panel">
+          <h1>管理者ログイン</h1>
+          <label for="adminPin">管理者PIN</label>
+          <input id="adminPin" name="adminPin" inputmode="numeric" type="password" placeholder="初期値: 2468" required>
+          <button class="primary-button" type="submit">管理者画面を開く</button>
+        </form>
+      </section>
+
+      <section id="adminView" class="view admin-view is-hidden">
+        <header class="admin-header">
+          <div>
+            <p class="eyebrow">管理者画面</p>
+            <h1>打刻管理</h1>
+          </div>
+          <button id="adminLogoutButton" class="small-button" type="button">終了</button>
+        </header>
+
+        <nav class="tabs" aria-label="管理メニュー">
+          <button class="tab is-active" data-tab="employees" type="button">社員</button>
+          <button class="tab" data-tab="status" type="button">状況</button>
+          <button class="tab" data-tab="records" type="button">打刻</button>
+          <button class="tab" data-tab="summary" type="button">集計</button>
+        </nav>
+
+        <section id="employeesTab" class="tab-panel">
+          <form id="employeeForm" class="inline-form">
+            <input id="newEmployeeId" placeholder="社員ID" required>
+            <input id="newEmployeeName" placeholder="氏名" required>
+            <input id="newEmployeePin" inputmode="numeric" placeholder="個人PIN" required>
+            <button type="submit">登録</button>
+          </form>
+          <div id="employeeList" class="list"></div>
+        </section>
+
+        <section id="statusTab" class="tab-panel is-hidden">
+          <form id="statusSearchForm" class="status-filter">
+            <input id="statusFrom" type="date">
+            <input id="statusTo" type="date">
+            <button type="submit">表示</button>
+          </form>
+          <nav id="statusEmployeeTabs" class="employee-name-tabs" aria-label="社員別状況"></nav>
+          <div id="statusList" class="employee-status-list"></div>
+        </section>
+
+        <section id="recordsTab" class="tab-panel is-hidden">
+          <form id="recordSearchForm" class="filter-grid">
+            <select id="recordEmployee"></select>
+            <input id="recordFrom" type="date">
+            <input id="recordTo" type="date">
+            <button type="submit">検索</button>
+            <button id="csvButton" type="button">CSV</button>
+          </form>
+
+          <form id="manualRecordForm" class="manual-form">
+            <h2>打刻修正・追加</h2>
+            <input id="manualAttendanceId" type="hidden">
+            <select id="manualEmployee"></select>
+            <input id="manualDate" type="date" required>
+            <input id="manualIn" type="time">
+            <input id="manualOut" type="time">
+            <textarea id="manualNote" rows="2" placeholder="備考"></textarea>
+            <button type="submit">保存</button>
+            <button id="manualClearButton" type="button">入力クリア</button>
+          </form>
+
+          <div id="recordList" class="record-list"></div>
+        </section>
+
+        <section id="summaryTab" class="tab-panel is-hidden">
+          <form id="summaryForm" class="inline-form">
+            <input id="summaryMonth" type="month" required>
+            <button type="submit">20日締め集計</button>
+          </form>
+          <form id="summarySaveForm" class="save-form">
+            <input id="summaryFolder" type="text" placeholder="保存先フォルダ 例: C:\勤怠CSV">
+            <button id="pickSummaryFolderButton" type="button">フォルダを選択</button>
+            <button type="submit">集計CSVをフォルダ保存</button>
+          </form>
+          <p id="summarySaveStatus" class="hint"></p>
+          <p id="summaryRange" class="hint"></p>
+          <div id="summaryList" class="record-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js?v=13" defer></script>
+  </body>
+</html>
