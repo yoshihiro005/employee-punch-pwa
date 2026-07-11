@@ -9,7 +9,7 @@
     <title>社員打刻</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/icons/icon-192.svg">
-    <link rel="stylesheet" href="/styles.css?v=19">
+    <link rel="stylesheet" href="/styles.css?v=20">
     <style>
       .is-hidden { display: none !important; }
       * { box-sizing: border-box; }
@@ -79,11 +79,19 @@
 
         <form id="dailyReportForm" class="daily-report-form is-hidden">
           <h2>退勤前にここへ入力</h2>
-          <p class="daily-report-callout">退勤するには、下の2つを入力してから「この内容で退勤する」を押してください。</p>
+          <p class="daily-report-callout">退勤するには、元請名・現場名・作業内容を入力してから「この内容で退勤する」を押してください。過去の入力は最新5件まで候補に出ます。</p>
+          <label for="dailyPrimeContractor">元請名</label>
+          <input id="dailyPrimeContractor" name="prime_contractor" maxlength="50" list="primeContractorHistory" placeholder="例: ○○建設">
+          <datalist id="primeContractorHistory"></datalist>
+          <div id="primeContractorHistoryButtons" class="history-chip-row"></div>
           <label for="dailySiteName">現場名</label>
-          <input id="dailySiteName" name="site_name" maxlength="50" placeholder="例: 長島設備 本社">
+          <input id="dailySiteName" name="site_name" maxlength="50" list="siteNameHistory" placeholder="例: 長島設備 本社">
+          <datalist id="siteNameHistory"></datalist>
+          <div id="siteNameHistoryButtons" class="history-chip-row"></div>
           <label for="dailyWorkReport">作業内容 100文字以内</label>
-          <textarea id="dailyWorkReport" name="work_report" rows="3" maxlength="100" placeholder="例: 配管点検、器具取付、片付け"></textarea>
+          <input id="dailyWorkReport" name="work_report" maxlength="100" list="workReportHistory" placeholder="例: 配管点検、器具取付、片付け">
+          <datalist id="workReportHistory"></datalist>
+          <div id="workReportHistoryButtons" class="history-chip-row"></div>
           <p id="dailyReportCount" class="hint">0 / 100文字</p>
           <div class="daily-report-actions">
             <button class="primary-button" type="submit">この内容で退勤する</button>
@@ -97,6 +105,7 @@
             <div><dt>出勤</dt><dd id="statusIn">未打刻</dd></div>
             <div><dt>退勤</dt><dd id="statusOut">未打刻</dd></div>
             <div><dt>勤務時間</dt><dd id="statusWork">-</dd></div>
+            <div><dt>元請名</dt><dd id="statusPrimeContractor">-</dd></div>
             <div><dt>現場名</dt><dd id="statusSite">-</dd></div>
             <div><dt>作業内容</dt><dd id="statusReport">-</dd></div>
           </dl>
@@ -176,8 +185,9 @@
             <input id="manualDate" type="date" required>
             <input id="manualIn" type="time">
             <input id="manualOut" type="time">
-            <input id="manualSiteName" maxlength="50" placeholder="現場名">
-            <textarea id="manualWorkReport" rows="2" maxlength="100" placeholder="作業内容 100文字以内"></textarea>
+            <input id="manualPrimeContractor" maxlength="50" list="primeContractorHistory" placeholder="元請名">
+            <input id="manualSiteName" maxlength="50" list="siteNameHistory" placeholder="現場名">
+            <input id="manualWorkReport" maxlength="100" list="workReportHistory" placeholder="作業内容 100文字以内">
             <textarea id="manualNote" rows="2" placeholder="備考"></textarea>
             <button type="submit">保存</button>
             <button id="manualClearButton" type="button">入力クリア</button>
@@ -203,6 +213,6 @@
       </section>
     </main>
 
-    <script src="/app.js?v=19" defer></script>
+    <script src="/app.js?v=20" defer></script>
   </body>
 </html>

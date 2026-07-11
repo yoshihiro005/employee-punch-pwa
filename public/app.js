@@ -4,6 +4,7 @@ const state = {
   adminPin: "",
   employees: [],
   attendance: null,
+  reportHistory: { prime_contractors: [], site_names: [], work_reports: [] },
   statusObserver: null,
   deferredInstallPrompt: null
 };
@@ -137,6 +138,34 @@ function setMessage(text, isError = false) {
   box.classList.remove("is-hidden");
 }
 
+function historyOptionsHtml(items) {
+  return (items || []).map((item) => `<option value="${escapeHtml(item)}"></option>`).join("");
+}
+
+function historyButtonsHtml(items, targetId) {
+  if (!items?.length) return '<span class="history-chip-empty">過去の候補はまだありません</span>';
+  return items.map((item) => `
+    <button class="history-chip" type="button" data-report-history-target="${targetId}" data-report-history-value="${escapeHtml(item)}">
+      ${escapeHtml(item)}
+    </button>
+  `).join("");
+}
+
+function renderReportHistoryOptions() {
+  $("primeContractorHistory").innerHTML = historyOptionsHtml(state.reportHistory.prime_contractors);
+  $("siteNameHistory").innerHTML = historyOptionsHtml(state.reportHistory.site_names);
+  $("workReportHistory").innerHTML = historyOptionsHtml(state.reportHistory.work_reports);
+  $("primeContractorHistoryButtons").innerHTML = historyButtonsHtml(state.reportHistory.prime_contractors, "dailyPrimeContractor");
+  $("siteNameHistoryButtons").innerHTML = historyButtonsHtml(state.reportHistory.site_names, "dailySiteName");
+  $("workReportHistoryButtons").innerHTML = historyButtonsHtml(state.reportHistory.work_reports, "dailyWorkReport");
+}
+
+async function loadReportHistory() {
+  if (!state.employee) return;
+  state.reportHistory = await api(`/api/report-history?employeeId=${encodeURIComponent(state.employee.id)}&pin=${encodeURIComponent(state.employeePin)}`);
+  renderReportHistoryOptions();
+}
+
 function renderEmployee() {
   const attendance = state.attendance || {};
   const needsDailyReport = Boolean(attendance.clock_in) && !attendance.clock_out;
@@ -145,6 +174,7 @@ function renderEmployee() {
   $("statusIn").textContent = attendance.clock_in || "未打刻";
   $("statusOut").textContent = attendance.clock_out || "未打刻";
   $("statusWork").textContent = attendance.work_time || "-";
+  $("statusPrimeContractor").textContent = attendance.prime_contractor || "-";
   $("statusSite").textContent = attendance.site_name || "-";
   $("statusReport").textContent = attendance.work_report || "-";
   $("clockInButton").disabled = Boolean(attendance.clock_in);
@@ -152,6 +182,7 @@ function renderEmployee() {
   $("dailyReportForm").classList.toggle("is-hidden", !needsDailyReport);
   $("dailyReportForm").classList.remove("needs-attention");
   if (needsDailyReport) {
+    $("dailyPrimeContractor").value = attendance.prime_contractor || "";
     $("dailySiteName").value = attendance.site_name || "";
     $("dailyWorkReport").value = attendance.work_report || "";
     updateDailyReportCount();
@@ -171,6 +202,7 @@ async function loginEmployee(employeeId, pin, remember = true) {
     localStorage.setItem("rememberedEmployeePin", pin);
   }
   renderEmployee();
+  await loadReportHistory();
   await loadEmployeeMonth();
   updateClock();
   showView("employeeView");
@@ -185,6 +217,7 @@ async function punch(type, extra = {}) {
     state.attendance = data.attendance;
     renderEmployee();
     await loadEmployeeMonth();
+    if (type === "out") await loadReportHistory();
     setMessage(data.message);
   } catch (error) {
     setMessage(error.message, true);
@@ -192,13 +225,14 @@ async function punch(type, extra = {}) {
 }
 
 function showDailyReportForm() {
+  $("dailyPrimeContractor").value = state.attendance?.prime_contractor || "";
   $("dailySiteName").value = state.attendance?.site_name || "";
   $("dailyWorkReport").value = state.attendance?.work_report || "";
   updateDailyReportCount();
   $("dailyReportForm").classList.remove("is-hidden");
-  setMessage("下の黄色い枠「退勤前にここへ入力」に、現場名と作業内容を入力してください。");
+  setMessage("下の黄色い枠「退勤前にここへ入力」に、元請名・現場名・作業内容を入力してください。");
   $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
-  $("dailySiteName").focus();
+  $("dailyPrimeContractor").focus();
 }
 
 function updateDailyReportCount() {
@@ -207,8 +241,16 @@ function updateDailyReportCount() {
 
 async function submitDailyReport(event) {
   event.preventDefault();
+  const primeContractor = $("dailyPrimeContractor").value.trim();
   const siteName = $("dailySiteName").value.trim();
   const workReport = $("dailyWorkReport").value.trim();
+  if (!primeContractor) {
+    setMessage("黄色い枠の中の「元請名」欄に、今日の元請名を入力してください。", true);
+    $("dailyReportForm").classList.add("needs-attention");
+    $("dailyPrimeContractor").focus();
+    $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   if (!siteName) {
     setMessage("黄色い枠の中の「現場名」欄に、今日の現場名を入力してください。", true);
     $("dailyReportForm").classList.add("needs-attention");
@@ -223,6 +265,12 @@ async function submitDailyReport(event) {
     $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
+  if (primeContractor.length > 50 || siteName.length > 50) {
+    setMessage("元請名と現場名は50文字以内で入力してください。", true);
+    $("dailyReportForm").classList.add("needs-attention");
+    $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   if (workReport.length > 100) {
     setMessage("作業内容は100文字以内で入力してください。", true);
     $("dailyReportForm").classList.add("needs-attention");
@@ -231,7 +279,7 @@ async function submitDailyReport(event) {
     return;
   }
   $("dailyReportForm").classList.remove("needs-attention");
-  await punch("out", { site_name: siteName, work_report: workReport });
+  await punch("out", { prime_contractor: primeContractor, site_name: siteName, work_report: workReport });
 }
 
 function statusBadge(status) {
@@ -284,6 +332,7 @@ function employeeMonthRowHtml(row) {
         <span>出勤: ${escapeHtml(row.clock_in || "-")}</span>
         <span>退勤: ${escapeHtml(row.clock_out || "-")}</span>
         <span>勤務: ${escapeHtml(row.work_time || "-")}</span>
+        <span>元請名: ${escapeHtml(row.prime_contractor || "-")}</span>
         <span>現場名: ${escapeHtml(row.site_name || "-")}</span>
         <span>作業内容: ${escapeHtml(row.work_report || "-")}</span>
         <span>備考: ${escapeHtml(row.note || "-")}</span>
@@ -292,8 +341,9 @@ function employeeMonthRowHtml(row) {
       <form class="employee-edit-grid" data-employee-correction="${escapeHtml(row.work_date)}">
         <label>出勤<input type="time" name="clock_in" value="${escapeHtml(row.clock_in || "")}"></label>
         <label>退勤<input type="time" name="clock_out" value="${escapeHtml(row.clock_out || "")}"></label>
-        <label>現場名<input type="text" name="site_name" maxlength="50" value="${escapeHtml(row.site_name || "")}"></label>
-        <label>作業内容<input type="text" name="work_report" maxlength="100" value="${escapeHtml(row.work_report || "")}"></label>
+        <label>元請名<input type="text" name="prime_contractor" maxlength="50" list="primeContractorHistory" value="${escapeHtml(row.prime_contractor || "")}"></label>
+        <label>現場名<input type="text" name="site_name" maxlength="50" list="siteNameHistory" value="${escapeHtml(row.site_name || "")}"></label>
+        <label>作業内容<input type="text" name="work_report" maxlength="100" list="workReportHistory" value="${escapeHtml(row.work_report || "")}"></label>
         <label>備考<input type="text" name="note" value="${escapeHtml(row.note || "")}" placeholder="押し忘れ等"></label>
         <button class="small-button" type="submit">修正保存</button>
       </form>
@@ -309,6 +359,7 @@ async function saveEmployeeCorrection(form) {
     work_date: workDate,
     clock_in: form.elements.clock_in.value,
     clock_out: form.elements.clock_out.value,
+    prime_contractor: form.elements.prime_contractor.value,
     site_name: form.elements.site_name.value,
     work_report: form.elements.work_report.value,
     note: form.elements.note.value
@@ -323,6 +374,7 @@ async function saveEmployeeCorrection(form) {
       renderEmployee();
     }
     await loadEmployeeMonth();
+    await loadReportHistory();
     setMessage(result.message);
   } catch (error) {
     setMessage(error.message, true);
@@ -448,6 +500,7 @@ function statusDayHtml(row) {
         <span>出勤: ${escapeHtml(row.clock_in || "-")}</span>
         <span>退勤: ${escapeHtml(row.clock_out || "-")}</span>
         <span>勤務: ${escapeHtml(row.work_time || "-")}</span>
+        <span>元請名: ${escapeHtml(row.prime_contractor || "-")}</span>
         <span>現場名: ${escapeHtml(row.site_name || "-")}</span>
         <span>作業内容: ${escapeHtml(row.work_report || "-")}</span>
         <span>備考: ${escapeHtml(row.note || "-")}</span>
@@ -477,6 +530,7 @@ function recordHtml(row) {
         <span>出勤: ${escapeHtml(row.clock_in || "-")}</span>
         <span>退勤: ${escapeHtml(row.clock_out || "-")}</span>
         <span>勤務: ${escapeHtml(row.work_time || "-")}</span>
+        <span>元請名: ${escapeHtml(row.prime_contractor || "-")}</span>
         <span>現場名: ${escapeHtml(row.site_name || "-")}</span>
         <span>作業内容: ${escapeHtml(row.work_report || "-")}</span>
         <span>備考: ${escapeHtml(row.note || "-")}</span>
@@ -495,6 +549,7 @@ function editRecord(row) {
   $("manualDate").value = row.work_date;
   $("manualIn").value = row.clock_in || "";
   $("manualOut").value = row.clock_out || "";
+  $("manualPrimeContractor").value = row.prime_contractor || "";
   $("manualSiteName").value = row.site_name || "";
   $("manualWorkReport").value = row.work_report || "";
   $("manualNote").value = row.note || "";
@@ -506,6 +561,7 @@ function clearManualForm() {
   $("manualDate").value = new Date().toISOString().slice(0, 10);
   $("manualIn").value = "";
   $("manualOut").value = "";
+  $("manualPrimeContractor").value = "";
   $("manualSiteName").value = "";
   $("manualWorkReport").value = "";
   $("manualNote").value = "";
@@ -517,6 +573,7 @@ async function saveManualRecord() {
     work_date: $("manualDate").value,
     clock_in: $("manualIn").value,
     clock_out: $("manualOut").value,
+    prime_contractor: $("manualPrimeContractor").value,
     site_name: $("manualSiteName").value,
     work_report: $("manualWorkReport").value,
     note: $("manualNote").value
@@ -528,6 +585,7 @@ async function saveManualRecord() {
   });
   clearManualForm();
   await loadRecords();
+  if (state.employee) await loadReportHistory();
 }
 
 async function loadSummary() {
@@ -633,6 +691,8 @@ $("logoutButton").addEventListener("click", () => {
   state.employee = null;
   state.employeePin = "";
   state.attendance = null;
+  state.reportHistory = { prime_contractors: [], site_names: [], work_reports: [] };
+  renderReportHistoryOptions();
   $("employeeId").value = "";
   $("employeePin").value = "";
   localStorage.removeItem("rememberedEmployeeId");
@@ -645,6 +705,14 @@ $("clockOutButton").addEventListener("click", showDailyReportForm);
 $("dailyWorkReport").addEventListener("input", updateDailyReportCount);
 $("dailyReportForm").addEventListener("submit", submitDailyReport);
 $("cancelDailyReportButton").addEventListener("click", () => $("dailyReportForm").classList.add("is-hidden"));
+$("dailyReportForm").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-report-history-target]");
+  if (!button) return;
+  const target = $(button.dataset.reportHistoryTarget);
+  target.value = button.dataset.reportHistoryValue || "";
+  if (target.id === "dailyWorkReport") updateDailyReportCount();
+  target.focus();
+});
 $("reloadEmployeeMonthButton").addEventListener("click", loadEmployeeMonth);
 $("employeeMonthList").addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-employee-correction]");

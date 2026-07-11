@@ -155,6 +155,29 @@ h2 {
   font-weight: 900;
 }
 
+.history-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.history-chip {
+  border: 1px solid #d5dde7;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.history-chip-empty {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .daily-report-actions {
   display: grid;
   grid-template-columns: 1fr;
@@ -690,7 +713,7 @@ textarea {
   }
 
   .employee-edit-grid {
-    grid-template-columns: 1fr 1fr 1.5fr 2fr 1.5fr auto;
+    grid-template-columns: 1fr 1fr 1fr;
     align-items: end;
   }
 
@@ -725,6 +748,10 @@ textarea {
 
   .manual-form h2,
   .manual-form textarea {
+    grid-column: 1 / -1;
+  }
+
+  .employee-edit-grid button {
     grid-column: 1 / -1;
   }
 }

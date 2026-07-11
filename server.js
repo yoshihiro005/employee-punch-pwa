@@ -81,6 +81,7 @@ db.exec(`
     clock_in_recorded_at TEXT,
     clock_out_recorded_at TEXT,
     work_minutes INTEGER,
+    prime_contractor TEXT NOT NULL DEFAULT '',
     site_name TEXT NOT NULL DEFAULT '',
     work_report TEXT NOT NULL DEFAULT '',
     note TEXT NOT NULL DEFAULT '',
@@ -117,6 +118,9 @@ if (employeeCount === 0 && process.env.SEED_DEMO_EMPLOYEES === "1") {
 }
 
 const attendanceColumns = db.prepare("PRAGMA table_info(attendance)").all().map((column) => column.name);
+if (!attendanceColumns.includes("prime_contractor")) {
+  db.exec("ALTER TABLE attendance ADD COLUMN prime_contractor TEXT NOT NULL DEFAULT ''");
+}
 if (!attendanceColumns.includes("site_name")) {
   db.exec("ALTER TABLE attendance ADD COLUMN site_name TEXT NOT NULL DEFAULT ''");
 }
@@ -233,12 +237,30 @@ function minutesBetween(start, end) {
   return minutes >= 0 ? minutes : null;
 }
 
-function validateDailyReport(siteName, workReport) {
+function validateDailyReport(primeContractor, siteName, workReport) {
+  if (!primeContractor) return "元請名を入力してください。";
   if (!siteName) return "現場名を入力してください。";
   if (!workReport) return "作業内容を入力してください。";
+  if (primeContractor.length > 50) return "元請名は50文字以内で入力してください。";
   if (siteName.length > 50) return "現場名は50文字以内で入力してください。";
   if (workReport.length > 100) return "作業内容は100文字以内で入力してください。";
   return "";
+}
+
+function reportHistory(employeeId) {
+  const recentValues = (column) => db.prepare(`
+    SELECT ${column} AS value, MAX(COALESCE(clock_out_recorded_at, updated_at, work_date)) AS latest
+    FROM attendance
+    WHERE employee_id = ? AND TRIM(${column}) <> ''
+    GROUP BY ${column}
+    ORDER BY latest DESC
+    LIMIT 5
+  `).all(employeeId).map((row) => row.value);
+  return {
+    prime_contractors: recentValues("prime_contractor"),
+    site_names: recentValues("site_name"),
+    work_reports: recentValues("work_report")
+  };
 }
 
 function rowStatus(row) {
@@ -278,6 +300,7 @@ function blankAttendance(employee, workDate) {
     clock_in_recorded_at: null,
     clock_out_recorded_at: null,
     work_minutes: null,
+    prime_contractor: "",
     site_name: "",
     work_report: "",
     note: "",
@@ -314,7 +337,7 @@ function getSummary(month) {
   `).all(range.start, range.end);
   const detailRows = db.prepare(`
     SELECT a.employee_id, e.name, a.work_date, a.clock_in, a.clock_out, a.work_minutes,
-           a.site_name, a.work_report, a.note, a.clock_in_recorded_at, a.clock_out_recorded_at
+           a.prime_contractor, a.site_name, a.work_report, a.note, a.clock_in_recorded_at, a.clock_out_recorded_at
     FROM attendance a
     JOIN employees e ON e.id = a.employee_id
     WHERE a.work_date BETWEEN ? AND ?
@@ -343,7 +366,7 @@ function summaryCsv(summary) {
     row.missing_out_days,
     row.error_days
   ]);
-  const detailHeader = ["社員ID", "氏名", "日付", "出勤時刻", "退勤時刻", "勤務時間", "現場名", "作業内容", "備考", "出勤打刻日時", "退勤打刻日時", "状態"];
+  const detailHeader = ["社員ID", "氏名", "日付", "出勤時刻", "退勤時刻", "勤務時間", "元請名", "現場名", "作業内容", "備考", "出勤打刻日時", "退勤打刻日時", "状態"];
   const detailRows = summary.detailRows.map((row) => [
     row.employee_id,
     row.name,
@@ -351,6 +374,7 @@ function summaryCsv(summary) {
     row.clock_in || "",
     row.clock_out || "",
     row.work_time || "",
+    row.prime_contractor || "",
     row.site_name || "",
     row.work_report || "",
     row.note || "",
@@ -398,6 +422,7 @@ app.post("/api/punch", (req, res) => {
   const employeeId = String(req.body.employeeId || "").trim();
   const pin = String(req.body.pin || "").trim();
   const type = String(req.body.type || "");
+  const primeContractor = String(req.body.prime_contractor || "").trim();
   const siteName = String(req.body.site_name || "").trim();
   const workReport = String(req.body.work_report || "").trim();
   const employee = db.prepare("SELECT id, name, pin FROM employees WHERE id = ? AND active = 1").get(employeeId);
@@ -435,7 +460,7 @@ app.post("/api/punch", (req, res) => {
   }
 
   if (type === "out") {
-    const reportError = validateDailyReport(siteName, workReport);
+    const reportError = validateDailyReport(primeContractor, siteName, workReport);
     if (reportError) {
       res.status(400).json({ error: reportError });
       return;
@@ -451,9 +476,9 @@ app.post("/api/punch", (req, res) => {
     const workMinutes = minutesBetween(row.clock_in, now.time);
     db.prepare(`
       UPDATE attendance
-      SET clock_out = ?, clock_out_recorded_at = ?, work_minutes = ?, site_name = ?, work_report = ?, updated_at = ?
+      SET clock_out = ?, clock_out_recorded_at = ?, work_minutes = ?, prime_contractor = ?, site_name = ?, work_report = ?, updated_at = ?
       WHERE id = ?
-    `).run(now.time, now.stamp, workMinutes, siteName, workReport, now.stamp, row.id);
+    `).run(now.time, now.stamp, workMinutes, primeContractor, siteName, workReport, now.stamp, row.id);
   }
 
   row = db.prepare("SELECT * FROM attendance WHERE employee_id = ? AND work_date = ?").get(employeeId, now.date);
@@ -505,12 +530,28 @@ app.get("/api/employee/attendance", (req, res) => {
   });
 });
 
+app.get("/api/report-history", (req, res) => {
+  const employeeId = String(req.query.employeeId || "").trim();
+  const pin = String(req.query.pin || "").trim();
+  const employee = db.prepare("SELECT id, pin FROM employees WHERE id = ? AND active = 1").get(employeeId);
+  if (!employee) {
+    res.status(404).json({ error: "社員IDが見つかりません。" });
+    return;
+  }
+  if (employee.pin !== pin) {
+    res.status(401).json({ error: "社員IDまたは個人PINが違います。" });
+    return;
+  }
+  res.json(reportHistory(employeeId));
+});
+
 app.put("/api/employee/attendance", (req, res) => {
   const employeeId = String(req.body.employeeId || "").trim();
   const pin = String(req.body.pin || "").trim();
   const workDate = String(req.body.work_date || "").trim();
   const clockIn = String(req.body.clock_in || "").trim() || null;
   const clockOut = String(req.body.clock_out || "").trim() || null;
+  const primeContractor = String(req.body.prime_contractor || "").trim();
   const siteName = String(req.body.site_name || "").trim();
   const workReport = String(req.body.work_report || "").trim();
   const note = String(req.body.note || "").trim();
@@ -523,11 +564,11 @@ app.put("/api/employee/attendance", (req, res) => {
     res.status(401).json({ error: "社員IDまたは個人PINが違います。" });
     return;
   }
-  if (siteName.length > 50 || workReport.length > 100) {
-    res.status(400).json({ error: "現場名は50文字以内、作業内容は100文字以内で入力してください。" });
+  if (primeContractor.length > 50 || siteName.length > 50 || workReport.length > 100) {
+    res.status(400).json({ error: "元請名と現場名は50文字以内、作業内容は100文字以内で入力してください。" });
     return;
   }
-  if (!clockIn && !clockOut && !siteName && !workReport && !note) {
+  if (!clockIn && !clockOut && !primeContractor && !siteName && !workReport && !note) {
     res.status(400).json({ error: "出勤時刻、退勤時刻、備考のいずれかを入力してください。" });
     return;
   }
@@ -538,18 +579,19 @@ app.put("/api/employee/attendance", (req, res) => {
   const correctionStamp = `修正 ${now} ${employee.name}`;
 
   db.prepare(`
-    INSERT INTO attendance (employee_id, work_date, clock_in, clock_out, work_minutes, site_name, work_report, note, correction_stamp, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO attendance (employee_id, work_date, clock_in, clock_out, work_minutes, prime_contractor, site_name, work_report, note, correction_stamp, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(employee_id, work_date) DO UPDATE SET
       clock_in = excluded.clock_in,
       clock_out = excluded.clock_out,
       work_minutes = excluded.work_minutes,
+      prime_contractor = excluded.prime_contractor,
       site_name = excluded.site_name,
       work_report = excluded.work_report,
       note = excluded.note,
       correction_stamp = excluded.correction_stamp,
       updated_at = excluded.updated_at
-  `).run(employeeId, workDate, clockIn, clockOut, workMinutes, siteName, workReport, note, correctionStamp, now);
+  `).run(employeeId, workDate, clockIn, clockOut, workMinutes, primeContractor, siteName, workReport, note, correctionStamp, now);
 
   const row = getAttendanceById(db.prepare("SELECT id FROM attendance WHERE employee_id = ? AND work_date = ?").get(employeeId, workDate).id);
   db.prepare(`
@@ -670,11 +712,12 @@ app.put("/api/admin/attendance/:id", requireAdmin, (req, res) => {
   }
   const clockIn = String(req.body.clock_in || "").trim() || null;
   const clockOut = String(req.body.clock_out || "").trim() || null;
+  const primeContractor = String(req.body.prime_contractor || "").trim();
   const siteName = String(req.body.site_name || "").trim();
   const workReport = String(req.body.work_report || "").trim();
   const note = String(req.body.note || "").trim();
-  if (siteName.length > 50 || workReport.length > 100) {
-    res.status(400).json({ error: "現場名は50文字以内、作業内容は100文字以内で入力してください。" });
+  if (primeContractor.length > 50 || siteName.length > 50 || workReport.length > 100) {
+    res.status(400).json({ error: "元請名と現場名は50文字以内、作業内容は100文字以内で入力してください。" });
     return;
   }
   const now = nowParts().stamp;
@@ -682,9 +725,9 @@ app.put("/api/admin/attendance/:id", requireAdmin, (req, res) => {
   const correctionStamp = `修正 ${now} 管理者`;
   db.prepare(`
     UPDATE attendance
-    SET clock_in = ?, clock_out = ?, work_minutes = ?, site_name = ?, work_report = ?, note = ?, correction_stamp = ?, updated_at = ?
+    SET clock_in = ?, clock_out = ?, work_minutes = ?, prime_contractor = ?, site_name = ?, work_report = ?, note = ?, correction_stamp = ?, updated_at = ?
     WHERE id = ?
-  `).run(clockIn, clockOut, workMinutes, siteName, workReport, note, correctionStamp, now, id);
+  `).run(clockIn, clockOut, workMinutes, primeContractor, siteName, workReport, note, correctionStamp, now, id);
   const after = getAttendanceById(id);
   db.prepare(`
     INSERT INTO audit_logs (attendance_id, employee_id, action, before_json, after_json, changed_by, changed_at)
@@ -698,6 +741,7 @@ app.post("/api/admin/attendance", requireAdmin, (req, res) => {
   const workDate = String(req.body.work_date || "").trim();
   const clockIn = String(req.body.clock_in || "").trim() || null;
   const clockOut = String(req.body.clock_out || "").trim() || null;
+  const primeContractor = String(req.body.prime_contractor || "").trim();
   const siteName = String(req.body.site_name || "").trim();
   const workReport = String(req.body.work_report || "").trim();
   const note = String(req.body.note || "").trim();
@@ -706,26 +750,27 @@ app.post("/api/admin/attendance", requireAdmin, (req, res) => {
     res.status(400).json({ error: "社員IDまたは日付が正しくありません。" });
     return;
   }
-  if (siteName.length > 50 || workReport.length > 100) {
-    res.status(400).json({ error: "現場名は50文字以内、作業内容は100文字以内で入力してください。" });
+  if (primeContractor.length > 50 || siteName.length > 50 || workReport.length > 100) {
+    res.status(400).json({ error: "元請名と現場名は50文字以内、作業内容は100文字以内で入力してください。" });
     return;
   }
   const now = nowParts().stamp;
   const workMinutes = minutesBetween(clockIn, clockOut);
   const correctionStamp = `修正 ${now} 管理者`;
   db.prepare(`
-    INSERT INTO attendance (employee_id, work_date, clock_in, clock_out, work_minutes, site_name, work_report, note, correction_stamp, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO attendance (employee_id, work_date, clock_in, clock_out, work_minutes, prime_contractor, site_name, work_report, note, correction_stamp, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(employee_id, work_date) DO UPDATE SET
       clock_in = excluded.clock_in,
       clock_out = excluded.clock_out,
       work_minutes = excluded.work_minutes,
+      prime_contractor = excluded.prime_contractor,
       site_name = excluded.site_name,
       work_report = excluded.work_report,
       note = excluded.note,
       correction_stamp = excluded.correction_stamp,
       updated_at = excluded.updated_at
-  `).run(employeeId, workDate, clockIn, clockOut, workMinutes, siteName, workReport, note, correctionStamp, now);
+  `).run(employeeId, workDate, clockIn, clockOut, workMinutes, primeContractor, siteName, workReport, note, correctionStamp, now);
   const row = db.prepare("SELECT id FROM attendance WHERE employee_id = ? AND work_date = ?").get(employeeId, workDate);
   const after = getAttendanceById(row.id);
   db.prepare(`
@@ -816,13 +861,13 @@ app.get("/api/admin/export.csv", requireAdmin, (req, res) => {
   }
   const rows = db.prepare(`
     SELECT a.employee_id, e.name, a.work_date, a.clock_in, a.clock_out, a.work_minutes,
-           a.site_name, a.work_report, a.note, a.clock_in_recorded_at, a.clock_out_recorded_at
+           a.prime_contractor, a.site_name, a.work_report, a.note, a.clock_in_recorded_at, a.clock_out_recorded_at
     FROM attendance a
     JOIN employees e ON e.id = a.employee_id
     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     ORDER BY a.work_date, a.employee_id
   `).all(...params);
-  const header = ["社員ID", "氏名", "日付", "出勤時刻", "退勤時刻", "勤務時間", "現場名", "作業内容", "備考", "出勤打刻日時", "退勤打刻日時", "状態"];
+  const header = ["社員ID", "氏名", "日付", "出勤時刻", "退勤時刻", "勤務時間", "元請名", "現場名", "作業内容", "備考", "出勤打刻日時", "退勤打刻日時", "状態"];
   const csv = [header, ...rows.map((row) => [
     row.employee_id,
     row.name,
@@ -830,6 +875,7 @@ app.get("/api/admin/export.csv", requireAdmin, (req, res) => {
     row.clock_in || "",
     row.clock_out || "",
     row.work_minutes == null ? "" : `${Math.floor(row.work_minutes / 60)}:${String(row.work_minutes % 60).padStart(2, "0")}`,
+    row.prime_contractor || "",
     row.site_name || "",
     row.work_report || "",
     row.note || "",
