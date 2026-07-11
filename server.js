@@ -417,6 +417,7 @@ app.post("/api/punch", (req, res) => {
   const employeeId = String(req.body.employeeId || "").trim();
   const pin = String(req.body.pin || "").trim();
   const type = String(req.body.type || "");
+  const testWorkDate = String(req.body.test_work_date || "").trim();
   const primeContractor = String(req.body.prime_contractor || "").trim();
   const siteName = String(req.body.site_name || "").trim();
   const workReport = String(req.body.work_report || "").trim();
@@ -433,9 +434,15 @@ app.post("/api/punch", (req, res) => {
     res.status(400).json({ error: "打刻種別が正しくありません。" });
     return;
   }
+  if (testWorkDate && !/^\d{4}-\d{2}-\d{2}$/.test(testWorkDate)) {
+    res.status(400).json({ error: "テスト用の日付が正しくありません。" });
+    return;
+  }
 
   const now = nowParts();
-  let row = db.prepare("SELECT * FROM attendance WHERE employee_id = ? AND work_date = ?").get(employeeId, now.date);
+  // TODO: 運用開始時はテスト日付指定を削除し、常に now.date を使う。
+  const workDate = testWorkDate || now.date;
+  let row = db.prepare("SELECT * FROM attendance WHERE employee_id = ? AND work_date = ?").get(employeeId, workDate);
 
   if (type === "in") {
     if (row?.clock_in) {
@@ -450,7 +457,7 @@ app.post("/api/punch", (req, res) => {
       db.prepare(`
         INSERT INTO attendance (employee_id, work_date, clock_in, clock_in_recorded_at, updated_at)
         VALUES (?, ?, ?, ?, ?)
-      `).run(employeeId, now.date, now.time, now.stamp, now.stamp);
+      `).run(employeeId, workDate, now.time, now.stamp, now.stamp);
     }
   }
 
@@ -476,7 +483,7 @@ app.post("/api/punch", (req, res) => {
     `).run(now.time, now.stamp, workMinutes, primeContractor, siteName, workReport, now.stamp, row.id);
   }
 
-  row = db.prepare("SELECT * FROM attendance WHERE employee_id = ? AND work_date = ?").get(employeeId, now.date);
+  row = db.prepare("SELECT * FROM attendance WHERE employee_id = ? AND work_date = ?").get(employeeId, workDate);
   db.prepare(`
     INSERT INTO audit_logs (attendance_id, employee_id, action, before_json, after_json, changed_by, changed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -485,7 +492,7 @@ app.post("/api/punch", (req, res) => {
   res.json({
     message: type === "in" ? "出勤を記録しました。" : "退勤を記録しました。",
     employee: { id: employee.id, name: employee.name },
-    today: now.date,
+    today: workDate,
     attendance: attendanceView(row)
   });
 });

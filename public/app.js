@@ -4,6 +4,7 @@ const state = {
   adminPin: "",
   employees: [],
   attendance: null,
+  testWorkDate: "",
   reportHistory: { prime_contractors: [], site_names: [], work_reports: [] },
   statusObserver: null,
   deferredInstallPrompt: null
@@ -171,6 +172,7 @@ function renderEmployee() {
   const needsDailyReport = Boolean(attendance.clock_in) && !attendance.clock_out;
   $("employeeName").textContent = `${state.employee.name} さん`;
   $("todayText").textContent = todayLabel(attendance.work_date);
+  $("testWorkDate").value = attendance.work_date || state.testWorkDate || "";
   $("statusIn").textContent = attendance.clock_in || "未打刻";
   $("statusOut").textContent = attendance.clock_out || "未打刻";
   $("statusWork").textContent = attendance.work_time || "-";
@@ -197,6 +199,7 @@ async function loginEmployee(employeeId, pin, remember = true) {
   state.employee = data.employee;
   state.employeePin = pin;
   state.attendance = data.attendance || { work_date: data.today };
+  state.testWorkDate = state.attendance.work_date || data.today;
   if (remember) {
     localStorage.setItem("rememberedEmployeeId", employeeId);
     localStorage.setItem("rememberedEmployeePin", pin);
@@ -212,7 +215,7 @@ async function punch(type, extra = {}) {
   try {
     const data = await api("/api/punch", {
       method: "POST",
-      body: JSON.stringify({ employeeId: state.employee.id, pin: state.employeePin, type, ...extra })
+      body: JSON.stringify({ employeeId: state.employee.id, pin: state.employeePin, type, test_work_date: state.testWorkDate, ...extra })
     });
     state.attendance = data.attendance;
     renderEmployee();
@@ -222,6 +225,15 @@ async function punch(type, extra = {}) {
   } catch (error) {
     setMessage(error.message, true);
   }
+}
+
+async function loadEmployeeDay(workDate) {
+  if (!state.employee || !workDate) return;
+  const data = await api(`/api/employee/attendance?employeeId=${encodeURIComponent(state.employee.id)}&pin=${encodeURIComponent(state.employeePin)}&from=${workDate}&to=${workDate}`);
+  state.testWorkDate = workDate;
+  state.attendance = data.rows[0] || { work_date: workDate };
+  renderEmployee();
+  setMessage(`テスト用の日付を ${workDate} に変更しました。`);
 }
 
 function showDailyReportForm() {
@@ -691,6 +703,7 @@ $("logoutButton").addEventListener("click", () => {
   state.employee = null;
   state.employeePin = "";
   state.attendance = null;
+  state.testWorkDate = "";
   state.reportHistory = { prime_contractors: [], site_names: [], work_reports: [] };
   renderReportHistoryOptions();
   $("employeeId").value = "";
@@ -702,6 +715,13 @@ $("logoutButton").addEventListener("click", () => {
 
 $("clockInButton").addEventListener("click", () => punch("in"));
 $("clockOutButton").addEventListener("click", showDailyReportForm);
+$("applyTestDateButton").addEventListener("click", async () => {
+  try {
+    await loadEmployeeDay($("testWorkDate").value);
+  } catch (error) {
+    setMessage(error.message, true);
+  }
+});
 $("dailyWorkReport").addEventListener("input", updateDailyReportCount);
 $("dailyReportForm").addEventListener("submit", submitDailyReport);
 $("cancelDailyReportButton").addEventListener("click", () => $("dailyReportForm").classList.add("is-hidden"));

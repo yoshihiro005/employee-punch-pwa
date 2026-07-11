@@ -9,7 +9,7 @@
     <title>社員打刻</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/icons/icon-192.svg">
-    <link rel="stylesheet" href="/styles.css?v=20">
+    <link rel="stylesheet" href="/styles.css?v=21">
     <style>
       .is-hidden { display: none !important; }
       * { box-sizing: border-box; }
@@ -73,6 +73,15 @@
             <span>退勤</span>
             <small>下の日報入力へ進む</small>
           </button>
+        </div>
+
+        <div class="test-date-tool">
+          <div>
+            <strong>テスト用 日付変更</strong>
+            <p>運用開始時に削除するボタンです。</p>
+          </div>
+          <input id="testWorkDate" type="date">
+          <button id="applyTestDateButton" class="small-button" type="button">日付変更</button>
         </div>
 
         <div id="messageBox" class="message is-hidden"></div>
@@ -213,6 +222,6 @@
       </section>
     </main>
 
-    <script src="/app.js?v=20" defer></script>
+    <script src="/app.js?v=21" defer></script>
   </body>
 </html>

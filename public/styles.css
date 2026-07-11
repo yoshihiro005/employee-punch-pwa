@@ -392,6 +392,30 @@ textarea {
   gap: 14px;
 }
 
+.test-date-tool {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-items: end;
+  border: 2px dashed #d18b00;
+  border-radius: 8px;
+  background: #fff7dc;
+  padding: 12px;
+}
+
+.test-date-tool strong {
+  display: block;
+  color: #6b4300;
+  font-size: 18px;
+}
+
+.test-date-tool p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .punch-button {
   min-height: 148px;
   border-radius: 8px;
@@ -710,6 +734,10 @@ textarea {
 @media (min-width: 700px) {
   .punch-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .test-date-tool {
+    grid-template-columns: 1fr auto auto;
   }
 
   .employee-edit-grid {
