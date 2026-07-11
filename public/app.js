@@ -139,6 +139,7 @@ function setMessage(text, isError = false) {
 
 function renderEmployee() {
   const attendance = state.attendance || {};
+  const needsDailyReport = Boolean(attendance.clock_in) && !attendance.clock_out;
   $("employeeName").textContent = `${state.employee.name} さん`;
   $("todayText").textContent = todayLabel(attendance.work_date);
   $("statusIn").textContent = attendance.clock_in || "未打刻";
@@ -148,7 +149,13 @@ function renderEmployee() {
   $("statusReport").textContent = attendance.work_report || "-";
   $("clockInButton").disabled = Boolean(attendance.clock_in);
   $("clockOutButton").disabled = !attendance.clock_in || Boolean(attendance.clock_out);
-  $("dailyReportForm").classList.add("is-hidden");
+  $("dailyReportForm").classList.toggle("is-hidden", !needsDailyReport);
+  $("dailyReportForm").classList.remove("needs-attention");
+  if (needsDailyReport) {
+    $("dailySiteName").value = attendance.site_name || "";
+    $("dailyWorkReport").value = attendance.work_report || "";
+    updateDailyReportCount();
+  }
 }
 
 async function loginEmployee(employeeId, pin, remember = true) {
@@ -189,7 +196,7 @@ function showDailyReportForm() {
   $("dailyWorkReport").value = state.attendance?.work_report || "";
   updateDailyReportCount();
   $("dailyReportForm").classList.remove("is-hidden");
-  setMessage("下の「作業日報」に現場名と作業内容を入力してから、退勤を完了してください。");
+  setMessage("下の黄色い枠「退勤前にここへ入力」に、現場名と作業内容を入力してください。");
   $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
   $("dailySiteName").focus();
 }
@@ -203,14 +210,14 @@ async function submitDailyReport(event) {
   const siteName = $("dailySiteName").value.trim();
   const workReport = $("dailyWorkReport").value.trim();
   if (!siteName) {
-    setMessage("下の「現場名」欄に、今日の現場名を入力してください。", true);
+    setMessage("黄色い枠の中の「現場名」欄に、今日の現場名を入力してください。", true);
     $("dailyReportForm").classList.add("needs-attention");
     $("dailySiteName").focus();
     $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   if (!workReport) {
-    setMessage("下の「作業内容」欄に、今日の作業内容を100文字以内で入力してください。", true);
+    setMessage("黄色い枠の中の「作業内容」欄に、今日の作業内容を100文字以内で入力してください。", true);
     $("dailyReportForm").classList.add("needs-attention");
     $("dailyWorkReport").focus();
     $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });

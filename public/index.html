@@ -9,7 +9,7 @@
     <title>社員打刻</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/icons/icon-192.svg">
-    <link rel="stylesheet" href="/styles.css?v=18">
+    <link rel="stylesheet" href="/styles.css?v=19">
     <style>
       .is-hidden { display: none !important; }
       * { box-sizing: border-box; }
@@ -71,22 +71,22 @@
           </button>
           <button id="clockOutButton" class="punch-button punch-out" type="button">
             <span>退勤</span>
-            <small>作業終了後に押す</small>
+            <small>下の日報入力へ進む</small>
           </button>
         </div>
 
         <div id="messageBox" class="message is-hidden"></div>
 
         <form id="dailyReportForm" class="daily-report-form is-hidden">
-          <h2>作業日報</h2>
-          <p class="hint">退勤前に、現場名と作業内容を簡潔に入力してください。</p>
+          <h2>退勤前にここへ入力</h2>
+          <p class="daily-report-callout">退勤するには、下の2つを入力してから「この内容で退勤する」を押してください。</p>
           <label for="dailySiteName">現場名</label>
           <input id="dailySiteName" name="site_name" maxlength="50" placeholder="例: 長島設備 本社">
           <label for="dailyWorkReport">作業内容 100文字以内</label>
           <textarea id="dailyWorkReport" name="work_report" rows="3" maxlength="100" placeholder="例: 配管点検、器具取付、片付け"></textarea>
           <p id="dailyReportCount" class="hint">0 / 100文字</p>
           <div class="daily-report-actions">
-            <button class="primary-button" type="submit">日報を保存して退勤</button>
+            <button class="primary-button" type="submit">この内容で退勤する</button>
             <button id="cancelDailyReportButton" class="small-button" type="button">戻る</button>
           </div>
         </form>
@@ -203,6 +203,6 @@
       </section>
     </main>
 
-    <script src="/app.js?v=18" defer></script>
+    <script src="/app.js?v=19" defer></script>
   </body>
 </html>
