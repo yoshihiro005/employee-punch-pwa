@@ -13,11 +13,52 @@ const LEGACY_DB_PATH = path.join(__dirname, "data", "attendance.sqlite");
 const DEFAULT_DATA_DIR = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "employee-punch-pwa");
 const DB_PATH = process.env.DB_PATH || path.join(DEFAULT_DATA_DIR, "attendance.sqlite");
 const DATA_DIR = path.dirname(DB_PATH);
+const DEMO_EMPLOYEES = [
+  ["1001", "山田 太郎", "1001"],
+  ["1002", "佐藤 花子", "1002"],
+  ["1003", "鈴木 一郎", "1003"]
+];
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
-if (DB_PATH !== LEGACY_DB_PATH && !fs.existsSync(DB_PATH) && fs.existsSync(LEGACY_DB_PATH)) {
-  fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
+
+function databaseSnapshot(dbPath) {
+  if (!fs.existsSync(dbPath)) return { exists: false, employeeCount: 0, demoOnly: false };
+  let snapshotDb;
+  try {
+    snapshotDb = new DatabaseSync(dbPath, { readOnly: true });
+    const table = snapshotDb.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'employees'").get();
+    if (!table) return { exists: true, employeeCount: 0, demoOnly: false };
+    const employees = snapshotDb.prepare("SELECT id, name, pin FROM employees ORDER BY id").all();
+    const demoOnly = employees.length === DEMO_EMPLOYEES.length
+      && employees.every((employee, index) => (
+        employee.id === DEMO_EMPLOYEES[index][0]
+        && employee.name === DEMO_EMPLOYEES[index][1]
+        && employee.pin === DEMO_EMPLOYEES[index][2]
+      ));
+    return { exists: true, employeeCount: employees.length, demoOnly };
+  } catch (_error) {
+    return { exists: true, employeeCount: 0, demoOnly: false };
+  } finally {
+    if (snapshotDb) snapshotDb.close();
+  }
 }
+
+function preserveExistingDatabase() {
+  if (DB_PATH === LEGACY_DB_PATH || !fs.existsSync(LEGACY_DB_PATH)) return;
+  const current = databaseSnapshot(DB_PATH);
+  const legacy = databaseSnapshot(LEGACY_DB_PATH);
+  if (!current.exists) {
+    fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
+    return;
+  }
+  if (current.demoOnly && (legacy.employeeCount > current.employeeCount || !legacy.demoOnly)) {
+    const backupPath = `${DB_PATH}.demo-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    fs.copyFileSync(DB_PATH, backupPath);
+    fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
+  }
+}
+
+preserveExistingDatabase();
 
 const db = new DatabaseSync(DB_PATH);
 db.exec(`
@@ -68,13 +109,9 @@ if (!employeeColumns.includes("pin")) {
   db.exec("UPDATE employees SET pin = id WHERE pin = '0000'");
 }
 
-if (employeeCount === 0) {
+if (employeeCount === 0 && process.env.SEED_DEMO_EMPLOYEES === "1") {
   const seed = db.prepare("INSERT INTO employees (id, name, pin) VALUES (?, ?, ?)");
-  [
-    ["1001", "山田 太郎", "1001"],
-    ["1002", "佐藤 花子", "1002"],
-    ["1003", "鈴木 一郎", "1003"]
-  ].forEach(([id, name, pin]) => seed.run(id, name, pin));
+  DEMO_EMPLOYEES.forEach(([id, name, pin]) => seed.run(id, name, pin));
 }
 
 const attendanceColumns = db.prepare("PRAGMA table_info(attendance)").all().map((column) => column.name);

@@ -71,6 +71,8 @@ function installGuideHtml() {
       <h2>ホーム画面に追加する方法</h2>
     </div>
 
+    <p class="install-line-note">※LINEから開いている場合は、先に右上のメニューから「Safariで開く」または「Chromeで開く」を選んでください。LINEの画面のままでは追加できません。</p>
+
     <section class="install-guide-section">
       <h3>【iPhone】</h3>
       <ol class="install-steps">
@@ -83,13 +85,12 @@ function installGuideHtml() {
     <section class="install-guide-section">
       <h3>【Android】</h3>
       <ol class="install-steps">
-        <li><span>①</span><p>右上の「︙」メニューを押します。</p></li>
-        <li><span>②</span><p>「ホーム画面に追加」または「アプリをインストール」を選びます。</p></li>
-        <li><span>③</span><p>「追加」を押します。</p></li>
+        <li><span>①</span><p>Chromeで開き、画面右上の「︙」メニューを押します。</p></li>
+        <li><span>②</span><p>メニューの中から「ホーム画面に追加」または「アプリをインストール」を探して押します。</p></li>
+        <li><span>③</span><p>確認画面が出たら「追加」または「インストール」を押します。</p></li>
       </ol>
     </section>
 
-    <p class="install-line-note">※LINEから開いている場合は、右上のメニューから「Safariで開く」または「Chromeで開く」を選んでから操作してください。</p>
     <p class="install-lead">ホーム画面にアイコンを追加すると、次回からはアプリのようにワンタップで勤怠を開けます。</p>
   `;
 }
