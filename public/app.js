@@ -189,6 +189,8 @@ function showDailyReportForm() {
   $("dailyWorkReport").value = state.attendance?.work_report || "";
   updateDailyReportCount();
   $("dailyReportForm").classList.remove("is-hidden");
+  setMessage("下の「作業日報」に現場名と作業内容を入力してから、退勤を完了してください。");
+  $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
   $("dailySiteName").focus();
 }
 
@@ -201,17 +203,27 @@ async function submitDailyReport(event) {
   const siteName = $("dailySiteName").value.trim();
   const workReport = $("dailyWorkReport").value.trim();
   if (!siteName) {
-    setMessage("現場名を入力してください。", true);
+    setMessage("下の「現場名」欄に、今日の現場名を入力してください。", true);
+    $("dailyReportForm").classList.add("needs-attention");
+    $("dailySiteName").focus();
+    $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   if (!workReport) {
-    setMessage("作業内容を入力してください。", true);
+    setMessage("下の「作業内容」欄に、今日の作業内容を100文字以内で入力してください。", true);
+    $("dailyReportForm").classList.add("needs-attention");
+    $("dailyWorkReport").focus();
+    $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   if (workReport.length > 100) {
     setMessage("作業内容は100文字以内で入力してください。", true);
+    $("dailyReportForm").classList.add("needs-attention");
+    $("dailyWorkReport").focus();
+    $("dailyReportForm").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
+  $("dailyReportForm").classList.remove("needs-attention");
   await punch("out", { site_name: siteName, work_report: workReport });
 }
 

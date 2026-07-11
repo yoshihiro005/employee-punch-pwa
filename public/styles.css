@@ -132,6 +132,12 @@ h2 {
   padding: 18px;
 }
 
+.daily-report-form.needs-attention {
+  border-color: var(--danger);
+  background: #fff8f6;
+  box-shadow: 0 0 0 4px rgba(224, 70, 47, 0.12);
+}
+
 .daily-report-form h2 {
   margin: 0;
   font-size: 24px;
