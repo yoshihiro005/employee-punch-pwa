@@ -9,7 +9,7 @@
     <title>社員打刻</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/icons/icon-192.svg">
-    <link rel="stylesheet" href="/styles.css?v=16">
+    <link rel="stylesheet" href="/styles.css?v=17">
     <style>
       .is-hidden { display: none !important; }
       * { box-sizing: border-box; }
@@ -77,12 +77,28 @@
 
         <div id="messageBox" class="message is-hidden"></div>
 
+        <form id="dailyReportForm" class="daily-report-form is-hidden">
+          <h2>作業日報</h2>
+          <p class="hint">退勤前に、現場名と作業内容を簡潔に入力してください。</p>
+          <label for="dailySiteName">現場名</label>
+          <input id="dailySiteName" name="site_name" maxlength="50" placeholder="例: 長島設備 本社">
+          <label for="dailyWorkReport">作業内容 100文字以内</label>
+          <textarea id="dailyWorkReport" name="work_report" rows="3" maxlength="100" placeholder="例: 配管点検、器具取付、片付け"></textarea>
+          <p id="dailyReportCount" class="hint">0 / 100文字</p>
+          <div class="daily-report-actions">
+            <button class="primary-button" type="submit">日報を保存して退勤</button>
+            <button id="cancelDailyReportButton" class="small-button" type="button">戻る</button>
+          </div>
+        </form>
+
         <section class="status-panel">
           <h2>本日の打刻状況</h2>
           <dl class="status-list">
             <div><dt>出勤</dt><dd id="statusIn">未打刻</dd></div>
             <div><dt>退勤</dt><dd id="statusOut">未打刻</dd></div>
             <div><dt>勤務時間</dt><dd id="statusWork">-</dd></div>
+            <div><dt>現場名</dt><dd id="statusSite">-</dd></div>
+            <div><dt>作業内容</dt><dd id="statusReport">-</dd></div>
           </dl>
         </section>
 
@@ -160,6 +176,8 @@
             <input id="manualDate" type="date" required>
             <input id="manualIn" type="time">
             <input id="manualOut" type="time">
+            <input id="manualSiteName" maxlength="50" placeholder="現場名">
+            <textarea id="manualWorkReport" rows="2" maxlength="100" placeholder="作業内容 100文字以内"></textarea>
             <textarea id="manualNote" rows="2" placeholder="備考"></textarea>
             <button type="submit">保存</button>
             <button id="manualClearButton" type="button">入力クリア</button>
@@ -185,6 +203,6 @@
       </section>
     </main>
 
-    <script src="/app.js?v=16" defer></script>
+    <script src="/app.js?v=17" defer></script>
   </body>
 </html>

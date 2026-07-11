@@ -123,6 +123,26 @@ h2 {
   padding: 18px;
 }
 
+.daily-report-form {
+  display: grid;
+  gap: 12px;
+  background: var(--paper);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.daily-report-form h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.daily-report-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
 .panel,
 .install-panel {
   display: grid;
@@ -652,8 +672,12 @@ textarea {
   }
 
   .employee-edit-grid {
-    grid-template-columns: 1fr 1fr 2fr auto;
+    grid-template-columns: 1fr 1fr 1.5fr 2fr 1.5fr auto;
     align-items: end;
+  }
+
+  .daily-report-actions {
+    grid-template-columns: 1fr auto;
   }
 
   .inline-form {

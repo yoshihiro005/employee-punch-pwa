@@ -1,9 +1,9 @@
-const CACHE_NAME = "employee-punch-pwa-v16";
+const CACHE_NAME = "employee-punch-pwa-v17";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
-  "/styles.css?v=16",
-  "/app.js?v=16",
+  "/styles.css?v=17",
+  "/app.js?v=17",
   "/manifest.webmanifest",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg"

@@ -144,8 +144,11 @@ function renderEmployee() {
   $("statusIn").textContent = attendance.clock_in || "未打刻";
   $("statusOut").textContent = attendance.clock_out || "未打刻";
   $("statusWork").textContent = attendance.work_time || "-";
+  $("statusSite").textContent = attendance.site_name || "-";
+  $("statusReport").textContent = attendance.work_report || "-";
   $("clockInButton").disabled = Boolean(attendance.clock_in);
   $("clockOutButton").disabled = !attendance.clock_in || Boolean(attendance.clock_out);
+  $("dailyReportForm").classList.add("is-hidden");
 }
 
 async function loginEmployee(employeeId, pin, remember = true) {
@@ -166,11 +169,11 @@ async function loginEmployee(employeeId, pin, remember = true) {
   showView("employeeView");
 }
 
-async function punch(type) {
+async function punch(type, extra = {}) {
   try {
     const data = await api("/api/punch", {
       method: "POST",
-      body: JSON.stringify({ employeeId: state.employee.id, pin: state.employeePin, type })
+      body: JSON.stringify({ employeeId: state.employee.id, pin: state.employeePin, type, ...extra })
     });
     state.attendance = data.attendance;
     renderEmployee();
@@ -179,6 +182,37 @@ async function punch(type) {
   } catch (error) {
     setMessage(error.message, true);
   }
+}
+
+function showDailyReportForm() {
+  $("dailySiteName").value = state.attendance?.site_name || "";
+  $("dailyWorkReport").value = state.attendance?.work_report || "";
+  updateDailyReportCount();
+  $("dailyReportForm").classList.remove("is-hidden");
+  $("dailySiteName").focus();
+}
+
+function updateDailyReportCount() {
+  $("dailyReportCount").textContent = `${$("dailyWorkReport").value.length} / 100文字`;
+}
+
+async function submitDailyReport(event) {
+  event.preventDefault();
+  const siteName = $("dailySiteName").value.trim();
+  const workReport = $("dailyWorkReport").value.trim();
+  if (!siteName) {
+    setMessage("現場名を入力してください。", true);
+    return;
+  }
+  if (!workReport) {
+    setMessage("作業内容を入力してください。", true);
+    return;
+  }
+  if (workReport.length > 100) {
+    setMessage("作業内容は100文字以内で入力してください。", true);
+    return;
+  }
+  await punch("out", { site_name: siteName, work_report: workReport });
 }
 
 function statusBadge(status) {
@@ -231,12 +265,16 @@ function employeeMonthRowHtml(row) {
         <span>出勤: ${escapeHtml(row.clock_in || "-")}</span>
         <span>退勤: ${escapeHtml(row.clock_out || "-")}</span>
         <span>勤務: ${escapeHtml(row.work_time || "-")}</span>
+        <span>現場名: ${escapeHtml(row.site_name || "-")}</span>
+        <span>作業内容: ${escapeHtml(row.work_report || "-")}</span>
         <span>備考: ${escapeHtml(row.note || "-")}</span>
       </div>
       ${row.correction_stamp ? `<div class="correction-stamp">${escapeHtml(row.correction_stamp)}</div>` : ""}
       <form class="employee-edit-grid" data-employee-correction="${escapeHtml(row.work_date)}">
         <label>出勤<input type="time" name="clock_in" value="${escapeHtml(row.clock_in || "")}"></label>
         <label>退勤<input type="time" name="clock_out" value="${escapeHtml(row.clock_out || "")}"></label>
+        <label>現場名<input type="text" name="site_name" maxlength="50" value="${escapeHtml(row.site_name || "")}"></label>
+        <label>作業内容<input type="text" name="work_report" maxlength="100" value="${escapeHtml(row.work_report || "")}"></label>
         <label>備考<input type="text" name="note" value="${escapeHtml(row.note || "")}" placeholder="押し忘れ等"></label>
         <button class="small-button" type="submit">修正保存</button>
       </form>
@@ -252,6 +290,8 @@ async function saveEmployeeCorrection(form) {
     work_date: workDate,
     clock_in: form.elements.clock_in.value,
     clock_out: form.elements.clock_out.value,
+    site_name: form.elements.site_name.value,
+    work_report: form.elements.work_report.value,
     note: form.elements.note.value
   };
   try {
@@ -389,6 +429,8 @@ function statusDayHtml(row) {
         <span>出勤: ${escapeHtml(row.clock_in || "-")}</span>
         <span>退勤: ${escapeHtml(row.clock_out || "-")}</span>
         <span>勤務: ${escapeHtml(row.work_time || "-")}</span>
+        <span>現場名: ${escapeHtml(row.site_name || "-")}</span>
+        <span>作業内容: ${escapeHtml(row.work_report || "-")}</span>
         <span>備考: ${escapeHtml(row.note || "-")}</span>
       </div>
       ${row.correction_stamp ? `<div class="correction-stamp">${escapeHtml(row.correction_stamp)}</div>` : ""}
@@ -416,6 +458,8 @@ function recordHtml(row) {
         <span>出勤: ${escapeHtml(row.clock_in || "-")}</span>
         <span>退勤: ${escapeHtml(row.clock_out || "-")}</span>
         <span>勤務: ${escapeHtml(row.work_time || "-")}</span>
+        <span>現場名: ${escapeHtml(row.site_name || "-")}</span>
+        <span>作業内容: ${escapeHtml(row.work_report || "-")}</span>
         <span>備考: ${escapeHtml(row.note || "-")}</span>
       </div>
       ${row.correction_stamp ? `<div class="correction-stamp">${escapeHtml(row.correction_stamp)}</div>` : ""}
@@ -432,6 +476,8 @@ function editRecord(row) {
   $("manualDate").value = row.work_date;
   $("manualIn").value = row.clock_in || "";
   $("manualOut").value = row.clock_out || "";
+  $("manualSiteName").value = row.site_name || "";
+  $("manualWorkReport").value = row.work_report || "";
   $("manualNote").value = row.note || "";
   $("manualDate").scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -441,6 +487,8 @@ function clearManualForm() {
   $("manualDate").value = new Date().toISOString().slice(0, 10);
   $("manualIn").value = "";
   $("manualOut").value = "";
+  $("manualSiteName").value = "";
+  $("manualWorkReport").value = "";
   $("manualNote").value = "";
 }
 
@@ -450,6 +498,8 @@ async function saveManualRecord() {
     work_date: $("manualDate").value,
     clock_in: $("manualIn").value,
     clock_out: $("manualOut").value,
+    site_name: $("manualSiteName").value,
+    work_report: $("manualWorkReport").value,
     note: $("manualNote").value
   };
   const id = $("manualAttendanceId").value;
@@ -572,7 +622,10 @@ $("logoutButton").addEventListener("click", () => {
 });
 
 $("clockInButton").addEventListener("click", () => punch("in"));
-$("clockOutButton").addEventListener("click", () => punch("out"));
+$("clockOutButton").addEventListener("click", showDailyReportForm);
+$("dailyWorkReport").addEventListener("input", updateDailyReportCount);
+$("dailyReportForm").addEventListener("submit", submitDailyReport);
+$("cancelDailyReportButton").addEventListener("click", () => $("dailyReportForm").classList.add("is-hidden"));
 $("reloadEmployeeMonthButton").addEventListener("click", loadEmployeeMonth);
 $("employeeMonthList").addEventListener("submit", async (event) => {
   const form = event.target.closest("[data-employee-correction]");
