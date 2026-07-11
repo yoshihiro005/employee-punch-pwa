@@ -46,19 +46,14 @@ function databaseSnapshot(dbPath) {
 function preserveExistingDatabase() {
   if (DB_PATH === LEGACY_DB_PATH || !fs.existsSync(LEGACY_DB_PATH)) return;
   const current = databaseSnapshot(DB_PATH);
-  const legacy = databaseSnapshot(LEGACY_DB_PATH);
   if (!current.exists) {
-    fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
-    return;
-  }
-  if (current.demoOnly && (legacy.employeeCount > current.employeeCount || !legacy.demoOnly)) {
-    const backupPath = `${DB_PATH}.demo-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-    fs.copyFileSync(DB_PATH, backupPath);
     fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
   }
 }
 
-preserveExistingDatabase();
+if (process.env.IMPORT_LEGACY_DB === "1") {
+  preserveExistingDatabase();
+}
 
 const db = new DatabaseSync(DB_PATH);
 db.exec(`
@@ -900,4 +895,5 @@ app.get("*", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Attendance PWA running at http://localhost:${PORT}`);
   console.log(`Admin PIN: ${ADMIN_PIN}`);
+  console.log(`Database: ${DB_PATH}`);
 });
